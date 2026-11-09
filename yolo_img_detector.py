@@ -24,6 +24,7 @@ with open(args.labels) as f:
 
 #We need to determine whether or not the image path is one image, a list of images, or a folder directory
 image_paths = []
+
 for path in args.image_path :
     if os.path.isdir(path):
         #checks if the path passed in was a folder
@@ -45,9 +46,6 @@ for images in image_paths:
 
     network.setInput(input_blob)
     output = network.forward(yolo_layers)
-
-    print(type(output))  # <class 'list'>
-    print(type(output[0]))  # <class 'numpy.ndarray'>
 
     bounding_boxes = []
     confidences = []
@@ -91,6 +89,9 @@ for images in image_paths:
     plt.figure()
     plt.rcParams['figure.figsize'] = (10.0, 10.0)
     plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    #Keeps the image name before the .jpg, ie: sample.jpg -> sample
+    image_name = os.path.splitext(os.path.basename(images))[0]
+    cv2.imwrite(os.path.join('out_imgs', image_name + '_out.jpg'), image)
 
 plt.show()
 
