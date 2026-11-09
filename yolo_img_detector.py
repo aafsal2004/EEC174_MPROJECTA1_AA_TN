@@ -94,17 +94,3 @@ for images in image_paths:
 
 plt.show()
 
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
