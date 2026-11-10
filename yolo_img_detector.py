@@ -4,6 +4,13 @@ import numpy as np
 import argparse
 import matplotlib.pyplot as plt
 import glob
+import time
+
+
+inference_times = []
+#total_classes = 0   #might not need this
+class_breakdown = {}
+per_image_breakdown = {}
 
 
 #Paths can't be hardcoded, so they must be inputted through the command line
@@ -45,7 +52,10 @@ for images in image_paths:
     input_blob = cv2.dnn.blobFromImage(image, 1 / 255.0, (416, 416), swapRB=True, crop=False)
 
     network.setInput(input_blob)
+    start_time = time.perf_counter() #getting average inference times
     output = network.forward(yolo_layers)
+    end_time = time.perf_counter()
+    inference_times.append(end_time - start_time)
 
     bounding_boxes = []
     confidences = []
@@ -55,6 +65,8 @@ for images in image_paths:
     h, w = image.shape[:2]
 
     for result in output:
+        image_name = os.path.basename(images)
+        per_image_breakdown[image_name] = {}
         for detection in result:
             scores = detection[5:]
             class_current = np.argmax(scores)
@@ -81,17 +93,35 @@ for images in image_paths:
             colour_box = [int(j) for j in colours[classes[i]]]
             #Fetching the label for its respective box
             current_label = labels[classes[i]]
+            #total_classes += 1
+            class_breakdown[current_label.capitalize()] = class_breakdown.get(current_label.capitalize(),0) + 1
+            per_image_breakdown[image_name][current_label.capitalize()] = per_image_breakdown[image_name].get(current_label.capitalize(),0) + 1
             cv2.rectangle(image, (x_min, y_min), (x_min + box_width, y_min + box_height),
                         colour_box, 5)
             text_box = '{}({:.2f})'.format(current_label,confidences[i])
             cv2.putText(image, text_box, (x_min, y_min - 7), cv2.FONT_HERSHEY_SIMPLEX, 1.5, colour_box, 5)
 
-    plt.figure()
-    plt.rcParams['figure.figsize'] = (10.0, 10.0)
-    plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
     #Keeps the image name before the .jpg, ie: sample.jpg -> sample
     image_name = os.path.splitext(os.path.basename(images))[0]
+    plt.figure()
+    plt.axis('off')
+    plt.title(os.path.basename(images))
+    plt.rcParams['figure.figsize'] = (10.0, 10.0)
+    plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    
     cv2.imwrite(os.path.join('out_imgs', image_name + '_out.jpg'), image)
+
+avg_inf_time = sum(inference_times) / len(inference_times)
+print(f"\nAverage Inference Time: {avg_inf_time:.3f} seconds")
+print(f"\nTotal number of classes detected: {len(class_breakdown.items())}")
+print("\nTotal Detection Breakdown")
+for label, count in class_breakdown.items() :
+    print(f"{label} : {count}")
+print(f"\nPer image breakdown:")
+for image, class_per_img in per_image_breakdown.items():
+    print(f"{image}")
+    for label, count in class_per_img.items():
+        print(f"\t {label} : {count}")
 
 plt.show()
 
