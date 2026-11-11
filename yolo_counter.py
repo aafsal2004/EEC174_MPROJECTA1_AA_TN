@@ -38,24 +38,26 @@ def detect_people(network, frame, person_idx):
     network.setInput(blob) #load blob
     output = network.forward(yolo_layers) #runs inference and returns output arrays
  
-    boxes, confidences = [], []
+    boxes, confidences, class_ids = [], [], []
     for result in output: #loops over each detection from the 3 yolo layers
         for detection in result:
             scores = detection[5:] #takes the 80 scores, finds best class, and gets confidence
             class_current = np.argmax(scores)
             confidence = float(scores[class_current])
             
-            if class_current == person_idx and confidence > prob_min: #filter for people only, or if confidence below 0.5
+            if confidence > prob_min: #filter for people only, or if confidence below 0.5
                 xc, yc, bw, bh = (detection[0:4] * np.array([w, h, w, h])).astype('int') #scales normalized box to pixels, then converts to top-left format
                 boxes.append([int(xc - bw / 2), int(yc - bh / 2), int(bw), int(bh)])
                 confidences.append(confidence)
+                class_ids.append(class_current)
  
     dets = [] 
     if len(boxes) > 0:
         keep = cv2.dnn.NMSBoxes(boxes, confidences, prob_min, nms_thresh) #remove overlapping duplicate boxes
         for i in np.array(keep).flatten():
-            x, y, bw, bh = boxes[i]
-            dets.append([x, y, x + bw, y + bh, confidences[i]]) #kept boxes are converted to this format
+            if class_ids[i] == person_idx:
+                x, y, bw, bh = boxes[i]
+                dets.append([x, y, x + bw, y + bh, confidences[i]]) #kept boxes are converted to this format
  
     return np.array(dets, dtype=float) if dets else np.empty((0, 5)) #returns detections as array, if none it return empty array
  
@@ -100,7 +102,7 @@ def main():
         os.makedirs(out_dir, exist_ok=True)
     writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height)) #readies videowriter
  
-    tracker = Sort() 
+    tracker = Sort(max_age=0, min_hits=1)
     seen_ids = set() 
     frame_num = 0 
  
@@ -127,6 +129,7 @@ def main():
  
     print(f"\nTotal number of people counted: {len(seen_ids)}") #prints final summary and returns
     print(f"Output video saved to: {out_path}")
+    
     return 0
  
  
